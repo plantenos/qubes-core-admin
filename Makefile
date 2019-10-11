@@ -1,8 +1,8 @@
-RPMS_DIR=rpm/
+DEBS_DIR=deb/
 
 VERSION := $(shell cat version)
 
-DIST_DOM0 ?= fc18
+DIST_DOM0 ?= plan10
 
 OS ?= Linux
 PYTHON ?= python3
@@ -109,104 +109,99 @@ ADMIN_API_METHODS_SIMPLE = \
 	$(null)
 
 ifeq ($(OS),Linux)
-DATADIR ?= /var/lib/qubes
-STATEDIR ?= /var/run/qubes
-LOGDIR ?= /var/log/qubes
-FILESDIR ?= /usr/share/qubes
-else ifeq ($(OS),Windows_NT)
-DATADIR ?= c:/qubes
-STATEDIR ?= c:/qubes/state
-LOGDIR ?= c:/qubes/log
-FILESDIR ?= c:/program files/Invisible Things Lab/Qubes
+DATADIR ?= /var/lib/plan10
+STATEDIR ?= /var/run/plan10
+LOGDIR ?= /var/log/plan10
+FILESDIR ?= /usr/share/plan10
 endif
 
 help:
-	@echo "make rpms                  -- generate binary rpm packages"
-	@echo "make rpms-dom0             -- generate binary rpm packages for Dom0"
-	@echo "make update-repo-current   -- copy newly generated rpms to qubes yum repo"
+	@echo "make DEBS                  -- generate binary deb packages"
+	@echo "make DEBS-dom0             -- generate binary deb packages for Dom0"
+	@echo "make update-repo-current   -- copy newly generated DEBS to plan10 apt repo"
 	@echo "make update-repo-current-testing  -- same, but to -current-testing repo"
 	@echo "make update-repo-unstable  -- same, but to -testing repo"
-	@echo "make update-repo-installer -- copy dom0 rpms to installer repo"
+	@echo "make update-repo-installer -- copy dom0 DEBS to installer repo"
 	@echo "make clean                 -- cleanup"
 
-rpms: rpms-dom0
+DEBS: DEBS-dom0
 
-rpms-vm:
+DEBS-vm:
 	@true
 
-rpms-dom0:
-	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0.spec
-	rpmbuild --define "_rpmdir $(RPMS_DIR)" -bb rpm_spec/core-dom0-doc.spec
-	rpm --addsign \
-		$(RPMS_DIR)/x86_64/qubes-core-dom0-$(VERSION)*.rpm \
-		$(RPMS_DIR)/noarch/qubes-core-dom0-doc-$(VERSION)*rpm
+DEBS-dom0:
+	debbuild --define "_debdir $(DEBS_DIR)" -bb deb_spec/core-dom0.spec
+	debbuild --define "_debdir $(DEBS_DIR)" -bb deb_spec/core-dom0-doc.spec
+	deb --addsign \
+		$(DEBS_DIR)/x86_64/plan10-core-dom0-$(VERSION)*.deb \
+		$(DEBS_DIR)/noarch/plan10-core-dom0-doc-$(VERSION)*deb
 
 all:
 	$(PYTHON) setup.py build
-	$(MAKE) -C qubes-rpc all
+	$(MAKE) -C plan10-rpc all
 	# Currently supported only on xen
 
 install:
 ifeq ($(OS),Linux)
-	$(MAKE) install -C linux/systemd
+	$(MAKE) install -C linux/sysvinit
 	$(MAKE) install -C linux/aux-tools
 	$(MAKE) install -C linux/system-config
 endif
 	$(PYTHON) setup.py install -O1 --skip-build --root $(DESTDIR)
-	ln -s qvm-device $(DESTDIR)/usr/bin/qvm-block
-	ln -s qvm-device $(DESTDIR)/usr/bin/qvm-pci
-	ln -s qvm-device $(DESTDIR)/usr/bin/qvm-usb
+	ln -s mastervm-device $(DESTDIR)/usr/bin/mastervm-block
+	ln -s mastervm-device $(DESTDIR)/usr/bin/mastervm-pci
+	ln -s mastervm-device $(DESTDIR)/usr/bin/mastervm-usb
 	install -d $(DESTDIR)/usr/share/man/man1
-	ln -s qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-block.1.gz
-	ln -s qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-pci.1.gz
-	ln -s qvm-device.1.gz $(DESTDIR)/usr/share/man/man1/qvm-usb.1.gz
+	ln -s mastervm-device.1.gz $(DESTDIR)/usr/share/man/man1/mastervm-block.1.gz
+	ln -s mastervm-device.1.gz $(DESTDIR)/usr/share/man/man1/mastervm-pci.1.gz
+	ln -s mastervm-device.1.gz $(DESTDIR)/usr/share/man/man1/mastervm-usb.1.gz
 	$(MAKE) install -C relaxng
-	mkdir -p $(DESTDIR)/etc/qubes
+	mkdir -p $(DESTDIR)/etc/plan10
 ifeq ($(BACKEND_VMM),xen)
 	# Currently supported only on xen
-	cp etc/qmemman.conf $(DESTDIR)/etc/qubes/
+	cp etc/plan10memman.conf $(DESTDIR)/etc/plan10/
 endif
-	mkdir -p $(DESTDIR)/etc/qubes-rpc/policy
-	mkdir -p $(DESTDIR)/usr/libexec/qubes
-	cp qubes-rpc-policy/qubes.FeaturesRequest.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.FeaturesRequest
-	cp qubes-rpc-policy/qubes.Filecopy.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.Filecopy
-	cp qubes-rpc-policy/qubes.OpenInVM.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.OpenInVM
-	cp qubes-rpc-policy/qubes.OpenURL.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.OpenURL
-	cp qubes-rpc-policy/qubes.VMShell.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMShell
-	cp qubes-rpc-policy/qubes.VMRootShell.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMRootShell
-	cp qubes-rpc-policy/qubes.NotifyUpdates.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.NotifyUpdates
-	cp qubes-rpc-policy/qubes.NotifyTools.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.NotifyTools
-	cp qubes-rpc-policy/qubes.GetImageRGBA.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.GetImageRGBA
-	cp qubes-rpc-policy/qubes.GetRandomizedTime.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.GetRandomizedTime
-	cp qubes-rpc-policy/qubes.NotifyTools.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.NotifyTools
-	cp qubes-rpc-policy/qubes.NotifyUpdates.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.NotifyUpdates
-	cp qubes-rpc-policy/qubes.OpenInVM.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.OpenInVM
-	cp qubes-rpc-policy/qubes.StartApp.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.StartApp
-	cp qubes-rpc-policy/qubes.VMShell.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.VMShell
-	cp qubes-rpc-policy/qubes.UpdatesProxy.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.UpdatesProxy
-	cp qubes-rpc-policy/qubes.GetDate.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.GetDate
-	cp qubes-rpc-policy/qubes.ConnectTCP.policy $(DESTDIR)/etc/qubes-rpc/policy/qubes.ConnectTCP
-	cp qubes-rpc-policy/admin.vm.Console.policy $(DESTDIR)/etc/qubes-rpc/policy/admin.vm.Console
-	cp qubes-rpc-policy/policy.RegisterArgument.policy $(DESTDIR)/etc/qubes-rpc/policy/policy.RegisterArgument
-	cp qubes-rpc/qubes.FeaturesRequest $(DESTDIR)/etc/qubes-rpc/
-	cp qubes-rpc/qubes.GetDate $(DESTDIR)/etc/qubes-rpc/
-	cp qubes-rpc/qubes.GetRandomizedTime $(DESTDIR)/etc/qubes-rpc/
-	cp qubes-rpc/qubes.NotifyTools $(DESTDIR)/etc/qubes-rpc/
-	cp qubes-rpc/qubes.NotifyUpdates $(DESTDIR)/etc/qubes-rpc/
-	cp qubes-rpc/qubes.ConnectTCP $(DESTDIR)/etc/qubes-rpc/
-	install qubes-rpc/qubesd-query-fast $(DESTDIR)/usr/libexec/qubes/
-	install -m 0755 qvm-tools/qubes-bug-report $(DESTDIR)/usr/bin/qubes-bug-report
-	install -m 0755 qvm-tools/qubes-hcl-report $(DESTDIR)/usr/bin/qubes-hcl-report
-	install -m 0755 qvm-tools/qvm-sync-clock $(DESTDIR)/usr/bin/qvm-sync-clock
-	install -m 0755 qvm-tools/qvm-console-dispvm $(DESTDIR)/usr/bin/qvm-console-dispvm
+	mkdir -p $(DESTDIR)/etc/plan10-rpc/policy
+	mkdir -p $(DESTDIR)/usr/libexec/plan10
+	cp plan10-rpc-policy/plan10.FeaturesRequest.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.FeaturesRequest
+	cp plan10-rpc-policy/plan10.Filecopy.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.Filecopy
+	cp plan10-rpc-policy/plan10.OpenInVM.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.OpenInVM
+	cp plan10-rpc-policy/plan10.OpenURL.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.OpenURL
+	cp plan10-rpc-policy/plan10.VMShell.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.VMShell
+	cp plan10-rpc-policy/plan10.VMRootShell.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.VMRootShell
+	cp plan10-rpc-policy/plan10.NotifyUpdates.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.NotifyUpdates
+	cp plan10-rpc-policy/plan10.NotifyTools.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.NotifyTools
+	cp plan10-rpc-policy/plan10.GetImageRGBA.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.GetImageRGBA
+	cp plan10-rpc-policy/plan10.GetRandomizedTime.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.GetRandomizedTime
+	cp plan10-rpc-policy/plan10.NotifyTools.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.NotifyTools
+	cp plan10-rpc-policy/plan10.NotifyUpdates.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.NotifyUpdates
+	cp plan10-rpc-policy/plan10.OpenInVM.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.OpenInVM
+	cp plan10-rpc-policy/plan10.StartApp.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.StartApp
+	cp plan10-rpc-policy/plan10.VMShell.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.VMShell
+	cp plan10-rpc-policy/plan10.UpdatesProxy.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.UpdatesProxy
+	cp plan10-rpc-policy/plan10.GetDate.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.GetDate
+	cp plan10-rpc-policy/plan10.ConnectTCP.policy $(DESTDIR)/etc/plan10-rpc/policy/plan10.ConnectTCP
+	cp plan10-rpc-policy/admin.vm.Console.policy $(DESTDIR)/etc/plan10-rpc/policy/admin.vm.Console
+	cp plan10-rpc-policy/policy.RegisterArgument.policy $(DESTDIR)/etc/plan10-rpc/policy/policy.RegisterArgument
+	cp plan10-rpc/plan10.FeaturesRequest $(DESTDIR)/etc/plan10-rpc/
+	cp plan10-rpc/plan10.GetDate $(DESTDIR)/etc/plan10-rpc/
+	cp plan10-rpc/plan10.GetRandomizedTime $(DESTDIR)/etc/plan10-rpc/
+	cp plan10-rpc/plan10.NotifyTools $(DESTDIR)/etc/plan10-rpc/
+	cp plan10-rpc/plan10.NotifyUpdates $(DESTDIR)/etc/plan10-rpc/
+	cp plan10-rpc/plan10.ConnectTCP $(DESTDIR)/etc/plan10-rpc/
+	install plan10-rpc/plan10d-query-fast $(DESTDIR)/usr/libexec/plan10/
+	install -m 0755 mastervm-tools/plan10-bug-report $(DESTDIR)/usr/bin/plan10-bug-report
+	install -m 0755 mastervm-tools/plan10-hcl-report $(DESTDIR)/usr/bin/plan10-hcl-report
+	install -m 0755 mastervm-tools/mastervm-sync-clock $(DESTDIR)/usr/bin/mastervm-sync-clock
+	install -m 0755 mastervm-tools/mastervm-console-dispvm $(DESTDIR)/usr/bin/mastervm-console-dispvm
 	for method in $(ADMIN_API_METHODS_SIMPLE); do \
-		ln -s ../../usr/libexec/qubes/qubesd-query-fast \
-			$(DESTDIR)/etc/qubes-rpc/$$method || exit 1; \
+		ln -s ../../usr/libexec/plan10/plan10d-query-fast \
+			$(DESTDIR)/etc/plan10-rpc/$$method || exit 1; \
 	done
-	install qubes-rpc/admin.vm.volume.Import $(DESTDIR)/etc/qubes-rpc/
-	install qubes-rpc/admin.vm.Console $(DESTDIR)/etc/qubes-rpc/
-	PYTHONPATH=.:test-packages qubes-rpc-policy/generate-admin-policy \
-		--destdir=$(DESTDIR)/etc/qubes-rpc/policy \
+	install plan10-rpc/admin.vm.volume.Import $(DESTDIR)/etc/plan10-rpc/
+	install plan10-rpc/admin.vm.Console $(DESTDIR)/etc/plan10-rpc/
+	PYTHONPATH=.:test-packages plan10-rpc-policy/generate-admin-policy \
+		--destdir=$(DESTDIR)/etc/plan10-rpc/policy \
 		--exclude admin.vm.Create.AdminVM \
 				  admin.vm.CreateInPool.AdminVM \
 		          admin.vm.device.testclass.Attach \
@@ -215,15 +210,15 @@ endif
 				  admin.vm.device.testclass.Set.persistent \
 				  admin.vm.device.testclass.Available
 	# sanity check
-	for method in $(DESTDIR)/etc/qubes-rpc/policy/admin.*; do \
-		ls $(DESTDIR)/etc/qubes-rpc/$$(basename $$method) >/dev/null || exit 1; \
+	for method in $(DESTDIR)/etc/plan10-rpc/policy/admin.*; do \
+		ls $(DESTDIR)/etc/plan10-rpc/$$(basename $$method) >/dev/null || exit 1; \
 	done
-	install -d $(DESTDIR)/etc/qubes-rpc/policy/include
-	install -m 0644 qubes-rpc-policy/admin-local-ro \
-		qubes-rpc-policy/admin-local-rwx \
-		qubes-rpc-policy/admin-global-ro \
-		qubes-rpc-policy/admin-global-rwx \
-		$(DESTDIR)/etc/qubes-rpc/policy/include/
+	install -d $(DESTDIR)/etc/plan10-rpc/policy/include
+	install -m 0644 plan10-rpc-policy/admin-local-ro \
+		plan10-rpc-policy/admin-local-rwx \
+		plan10-rpc-policy/admin-global-ro \
+		plan10-rpc-policy/admin-global-rwx \
+		$(DESTDIR)/etc/plan10-rpc/policy/include/
 
 	mkdir -p "$(DESTDIR)$(FILESDIR)"
 	cp -r templates "$(DESTDIR)$(FILESDIR)/templates"
@@ -247,13 +242,12 @@ msi:
 		PYTHON_SITEPATH=/site-packages \
 		FILESDIR=/pfiles \
 		BINDIR=/bin \
-		DATADIR=/qubes \
-		STATEDIR=/qubes/state \
-		LOGDIR=/qubes/log
+		DATADIR=/plan10 \
+		STATEDIR=/plan10/state \
+		LOGDIR=/plan10/log
 	# icons placeholder
 	mkdir -p destinstdir/icons
 	for i in blue gray green yellow orange black purple red; do touch destinstdir/icons/$$i.png; done
 	candle -arch x64 -dversion=$(VERSION) installer.wxs
 	light -b destinstdir -o core-admin.msm installer.wixobj
 	rm -rf destinstdir
-
