@@ -1,0 +1,19 @@
+/var/log/plan10/plan10memman.log {
+    create 0640 root plan10
+    su root plan10
+    postrotate
+        /bin/systemctl restart plan10-plan10memman.service >/dev/null 2>/dev/null || true
+    endscript
+}
+
+/var/log/plan10/plan10.log {
+    create 0640 root plan10
+    su root plan10
+    postrotate
+        /bin/systemctl restart plan10d.service >/dev/null 2>/dev/null || true
+    endscript
+}
+
+/var/log/plan10/vm-*.log {
+    su root plan10
+}
