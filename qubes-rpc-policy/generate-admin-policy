@@ -23,7 +23,7 @@ import os
 
 import sys
 
-import qubes.api.admin
+import plan10.api.admin
 
 parser = argparse.ArgumentParser(
     description='Generate default Admin API policy')
@@ -51,7 +51,7 @@ default_policy_header = '''\
 ## Include a common file for all admin.* methods to ease setting up
 ## Management VM.
 ## To allow only specific actions, edit specific policy file, like this one. To
-## allow all of them, edit appropriate /etc/qubes-rpc/include/admin-*.
+## allow all of them, edit appropriate /etc/plan10-rpc/include/admin-*.
 
 '''
 
@@ -83,7 +83,7 @@ def main(args=None):
     ''' Main function of default-admin-policy tool'''
     args = parser.parse_args(args)
 
-    for func, apiname, _ in qubes.api.admin.QubesAdminAPI.list_methods():
+    for func, apiname, _ in plan10.api.admin.QubesAdminAPI.list_methods():
         if args.service and apiname not in args.service:
             continue
         if args.exclude and apiname in args.exclude:
